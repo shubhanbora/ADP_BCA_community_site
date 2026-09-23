@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import { Search, X, Heart, Share2, ExternalLink, Calendar, MapPin, Users, Trophy, Clock, ChevronDown } from 'lucide-react'
-import { events, eventCategories, eventModes } from '../data/events'
+import { eventCategories, eventModes } from '../data/events' // We still use these static filter categories
+import { useEvents } from '../hooks/useEvents'
+import { useAuth } from '../context/AuthContext'
 
 const CAT_COLOR = { Hackathon:'#C8FF00', Bootcamp:'#FF2D9B', Competition:'#FFE040', Workshop:'#C8FF00', Webinar:'#FF2D9B', Internship:'#FFE040' }
 
 function daysLeft(str) {
   if (!str) return null
   const parts = str.replace(',','').split(' ')
+  if (parts.length < 3) return null
   const mon = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 }
   const d = new Date(+parts[2], mon[parts[0]], +parts[1])
+  if (isNaN(d.getTime())) return null
   return Math.ceil((d - new Date()) / 86400000)
 }
 
 /* ── EventCard ── */
-function EventCard({ ev, onSelect, onSave, saved }) {
+function EventCard({ ev, onSelect, onSave, onUnsave, saved }) {
   const bg  = CAT_COLOR[ev.category] || '#C8FF00'
   const dl  = daysLeft(ev.registrationDeadline)
   const dlColor = dl <= 0 ? '#555' : dl <= 7 ? '#FF2D9B' : dl <= 14 ? '#FFE040' : '#eae6dc'
@@ -62,7 +66,7 @@ function EventCard({ ev, onSelect, onSave, saved }) {
 
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-black" style={{ flexGrow: 1, justifyContent: 'center', fontSize: '0.65rem', padding: 8 }} onClick={() => onSelect(ev)}>VIEW DETAILS →</button>
-          <button onClick={() => onSave(ev.id)}
+          <button onClick={() => saved ? onUnsave(ev.id) : onSave(ev.id)}
             style={{ border: '2px solid #0A0A0A', padding: '8px 12px', background: saved ? '#FF2D9B' : 'transparent', cursor: 'pointer', boxShadow: '3px 3px 0 #0A0A0A', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}>
             <Heart size={15} color={saved ? 'white' : '#0A0A0A'} fill={saved ? 'white' : 'none'} />
           </button>
@@ -73,15 +77,17 @@ function EventCard({ ev, onSelect, onSave, saved }) {
 }
 
 /* ── EventModal ── */
-function EventModal({ ev, onClose, saved, onSave }) {
+function EventModal({ ev, onClose, saved, onSave, onUnsave }) {
   const bg = CAT_COLOR[ev.category] || '#C8FF00'
   const dl = daysLeft(ev.registrationDeadline)
   const [copied, setCopied] = useState(false)
 
   const share = () => {
-    navigator.clipboard?.writeText(ev.officialUrl)
+    navigator.clipboard?.writeText(ev.officialUrl || window.location.href)
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
+
+  const handleSaveToggle = () => saved ? onUnsave(ev.id) : onSave(ev.id)
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16, overflowY: 'auto' }}
@@ -153,17 +159,17 @@ function EventModal({ ev, onClose, saved, onSave }) {
 
           {/* Tags */}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-            {ev.tags.map(t => <span key={t} style={{ border: '1.5px solid #0A0A0A', fontFamily: 'Courier New, monospace', fontSize: '0.58rem', fontWeight: 600, padding: '3px 8px' }}>#{t}</span>)}
+            {ev.tags && ev.tags.map(t => <span key={t} style={{ border: '1.5px solid #0A0A0A', fontFamily: 'Courier New, monospace', fontSize: '0.58rem', fontWeight: 600, padding: '3px 8px' }}>#{t}</span>)}
           </div>
 
           {/* Actions */}
           <div style={{ borderTop: '1.5px solid #e5e1d8', paddingTop: 18, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a href={ev.officialUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', flexGrow: 1, display: 'flex' }}>
-              <button className="btn btn-primary" style={{ flexGrow: 1, justifyContent: 'center', fontSize: '0.76rem', padding: 12, gap: 8 }}>
+            {ev.officialUrl && (
+              <button className="btn btn-primary" style={{ flexGrow: 1, justifyContent: 'center', fontSize: '0.76rem', padding: 12, gap: 8 }} onClick={() => window.open(ev.officialUrl, '_blank', 'noopener,noreferrer')}>
                 <ExternalLink size={14} /> VISIT OFFICIAL WEBSITE ↗
               </button>
-            </a>
-            <button className="btn btn-outline" style={{ gap: 6, fontSize: '0.68rem', padding: '10px 14px' }} onClick={() => onSave(ev.id)}>
+            )}
+            <button className="btn btn-outline" style={{ gap: 6, fontSize: '0.68rem', padding: '10px 14px' }} onClick={handleSaveToggle}>
               <Heart size={13} fill={saved ? '#FF2D9B' : 'none'} color={saved ? '#FF2D9B' : '#0A0A0A'} />{saved ? 'SAVED' : 'SAVE'}
             </button>
             <button className="btn btn-outline" style={{ gap: 6, fontSize: '0.68rem', padding: '10px 14px' }} onClick={share}>
@@ -198,18 +204,28 @@ function InfoBlock({ label, children }) {
 }
 
 /* ── EventsPage ── */
-export default function EventsPage() {
+export default function EventsPage({ navigate }) {
+  const { events, loading, error, saveEvent, unsaveEvent, savedEvents } = useEvents()
+  const { user } = useAuth()
+  
   const [search, setSearch]   = useState('')
   const [cat, setCat]         = useState('All')
   const [mode, setMode]       = useState('All Modes')
   const [selected, setSelected] = useState(null)
-  const [saved, setSaved]     = useState(new Set())
 
-  const toggleSave = id => setSaved(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  const handleSave = id => {
+    if (!user) return alert("Please log in to save events.")
+    saveEvent(id)
+  }
+  
+  const handleUnsave = id => {
+    if (!user) return alert("Please log in to save events.")
+    unsaveEvent(id)
+  }
 
   const filtered = events.filter(e => {
     const q = search.toLowerCase()
-    const ms = !q || [e.title, e.organizer, e.category, ...e.tags, e.shortDescription].some(v => v.toLowerCase().includes(q))
+    const ms = !q || [e.title, e.organizer, e.category, ...(e.tags || []), e.shortDescription].some(v => v?.toLowerCase().includes(q))
     const mc = cat === 'All' || (cat === 'Hackathons' && e.category === 'Hackathon') || (cat === 'Bootcamps' && e.category === 'Bootcamp') || (cat === 'Workshops' && e.category === 'Workshop') || (cat === 'Competitions' && e.category === 'Competition') || (cat === 'Webinars' && e.category === 'Webinar') || (cat === 'Internships' && e.category === 'Internship')
     const mm = mode === 'All Modes' || e.mode === mode
     return ms && mc && mm
@@ -273,9 +289,17 @@ export default function EventsPage() {
         </div>
 
         {/* Grid */}
-        {filtered.length > 0
+        {loading ? (
+          <div style={{ padding: '56px 24px', textAlign: 'center' }}>
+            <p style={{ fontFamily: 'Courier New, monospace', fontSize: '0.72rem', letterSpacing: '0.1em' }}>LOADING EVENTS...</p>
+          </div>
+        ) : error ? (
+          <div style={{ border: '2px solid #cc0000', background: '#ffcccc', padding: '24px', textAlign: 'center', color: '#cc0000' }}>
+            <p style={{ fontFamily: 'Courier New, monospace', fontSize: '0.72rem', letterSpacing: '0.1em' }}>FAILED TO LOAD EVENTS.</p>
+          </div>
+        ) : filtered.length > 0
           ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(295px,1fr))', gap: 20 }}>
-              {filtered.map(ev => <EventCard key={ev.id} ev={ev} onSelect={setSelected} onSave={toggleSave} saved={saved.has(ev.id)} />)}
+              {filtered.map(ev => <EventCard key={ev.id} ev={ev} onSelect={setSelected} onSave={handleSave} onUnsave={handleUnsave} saved={savedEvents.has(ev.id)} />)}
             </div>
           : <div style={{ border: '2px solid #0A0A0A', padding: '56px 24px', textAlign: 'center', background: '#fbf7ef' }}>
               <p style={{ fontFamily: 'Courier New, monospace', fontSize: '0.72rem', color: '#aaa', letterSpacing: '0.1em' }}>NO EVENTS FOUND — try adjusting your filters.</p>
@@ -283,7 +307,7 @@ export default function EventsPage() {
         }
       </div>
 
-      {selected && <EventModal ev={selected} onClose={() => setSelected(null)} saved={saved.has(selected.id)} onSave={toggleSave} />}
+      {selected && <EventModal ev={selected} onClose={() => setSelected(null)} saved={savedEvents.has(selected.id)} onSave={handleSave} onUnsave={handleUnsave} />}
     </div>
   )
 }

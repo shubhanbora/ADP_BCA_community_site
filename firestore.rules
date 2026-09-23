@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is accessing their own data
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if user is an admin
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if true; // Public profiles
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Events Collection
+    match /events/{eventId} {
+      allow read: if true; // Or restrict to published events only using: resource.data.published == true
+      allow write: if isAdmin();
+    }
+
+    // Projects Collection
+    match /projects/{projectId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.creatorId == request.auth.uid;
+      allow update: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.creatorId == request.auth.uid) || isAdmin();
+    }
+
+    // Posts Collection
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      allow update: if (isAuthenticated() && resource.data.authorId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.authorId == request.auth.uid) || isAdmin();
+    }
+
+    // Comments Collection
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+      allow update: if (isAuthenticated() && resource.data.authorId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuthenticated() && resource.data.authorId == request.auth.uid) || isAdmin();
+    }
+
+    // Event Saves Collection
+    match /eventSaves/{saveId} {
+      allow read: if isOwner(resource.data.uid) || (isAuthenticated() && request.query.limit <= 1 && request.query.filters.size() > 0);
+      allow create: if isOwner(request.resource.data.uid);
+      allow delete: if isOwner(resource.data.uid);
+    }
+    
+    // Post Likes Collection
+    match /postLikes/{likeId} {
+      allow read: if true;
+      allow create: if isOwner(request.resource.data.uid);
+      allow delete: if isOwner(resource.data.uid);
+    }
+  }
+}

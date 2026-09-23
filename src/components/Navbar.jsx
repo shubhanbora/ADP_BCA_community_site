@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Search, Menu, X, User } from 'lucide-react'
+import { Search, Menu, X, User, Shield } from 'lucide-react'
+
+const ADMIN_EMAILS = ['shubhan121b@gmail.com']
 
 const NAV = [
   { label: 'HOME',     key: 'home' },
@@ -41,7 +43,7 @@ const S = {
   },
 }
 
-export default function Navbar({ currentPage, navigate, isLoggedIn, openLogin, openSignup, onLogout }) {
+export default function Navbar({ currentPage, navigate, isLoggedIn, openLogin, openSignup }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
 
@@ -88,20 +90,10 @@ export default function Navbar({ currentPage, navigate, isLoggedIn, openLogin, o
           </button>
 
           {isLoggedIn ? (
-            <>
               <button className="btn btn-outline" style={{ padding: '5px 14px', fontSize: '0.63rem' }}
                 onClick={() => navigate('profile')}>
                 <User size={13} /> MY PROFILE
               </button>
-              <button onClick={onLogout} style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontFamily: 'Courier New, monospace', fontSize: '0.63rem', fontWeight: 700,
-                letterSpacing: '0.1em', textTransform: 'uppercase', color: '#aaa',
-              }}
-                onMouseEnter={e => e.currentTarget.style.color = '#FF2D9B'}
-                onMouseLeave={e => e.currentTarget.style.color = '#aaa'}
-              >LOGOUT</button>
-            </>
           ) : (
             <>
               <button onClick={openLogin} style={{
@@ -155,14 +147,10 @@ export default function Navbar({ currentPage, navigate, isLoggedIn, openLogin, o
           ))}
           <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
             {isLoggedIn
-              ? <>
-                  <button className="btn btn-black" style={{ fontSize: '0.68rem' }}
+              ? <button className="btn btn-black" style={{ fontSize: '0.68rem' }}
                     onClick={() => { navigate('profile'); setMobileOpen(false) }}>
                     <User size={13} /> MY PROFILE
                   </button>
-                  <button className="btn btn-outline" style={{ fontSize: '0.68rem' }}
-                    onClick={() => { onLogout(); setMobileOpen(false) }}>LOGOUT</button>
-                </>
               : <>
                   <button className="btn btn-outline" style={{ fontSize: '0.68rem' }}
                     onClick={() => { openLogin(); setMobileOpen(false) }}>LOGIN</button>

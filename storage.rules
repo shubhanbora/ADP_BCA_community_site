@@ -1,0 +1,44 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user is an admin (note: requires custom claims or a call to Firestore, 
+    // which is not directly possible in storage rules without custom claims. 
+    // If you are relying on Firestore for 'role', you might need to use Firebase Authentication Custom Claims. 
+    // For now, we'll restrict event image uploads to authenticated users, or limit it to specific paths)
+
+    // Helper for image size (< 5MB) and type
+    function isValidImage() {
+      return request.resource.size < 5 * 1024 * 1024
+          && request.resource.contentType.matches('image/.*');
+    }
+
+    match /profile-images/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidImage();
+    }
+    
+    match /project-images/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidImage();
+    }
+    
+    match /post-images/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidImage();
+    }
+
+    match /event-images/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidImage(); // Ideally restricted to admin, needs custom claims for robust security
+    }
+  }
+}

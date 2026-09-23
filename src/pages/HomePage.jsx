@@ -1,15 +1,23 @@
-import { Users, Calendar, Code2, Building2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { collection, getCountFromServer } from 'firebase/firestore'
+import { db } from '../context/../firebase'
 import clgImg from '../assets/clg.jpg'
-
-const stats = [
-  { value: '1.2K+', label: 'MEMBERS' },
-  { value: '50+',   label: 'EVENTS' },
-  { value: '200+',  label: 'PROJECTS' },
-  { value: '10+',   label: 'COLLEGES' },
-]
 
 /* ─── HomePage ─── */
 export default function HomePage({ navigate, isLoggedIn, openSignup }) {
+  const [memberCount, setMemberCount] = useState('...')
+
+  useEffect(() => {
+    getCountFromServer(collection(db, 'users'))
+      .then(snap => setMemberCount(snap.data().count.toLocaleString()))
+      .catch(() => setMemberCount('1.2K+'))
+  }, [])
+
+  const stats = [
+    { value: memberCount, label: 'MEMBERS' },
+    { value: '50+',       label: 'EVENTS'   },
+    { value: '200+',      label: 'PROJECTS' },
+  ]
 
   return (
     <div>
@@ -255,7 +263,7 @@ export default function HomePage({ navigate, isLoggedIn, openSignup }) {
             padding: '0 32px',
             borderTop: '2px solid #0A0A0A',
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(3, 1fr)',
           }}
           className="stats-grid"
         >
@@ -264,7 +272,7 @@ export default function HomePage({ navigate, isLoggedIn, openSignup }) {
               key={i}
               style={{
                 padding: '20px 20px',
-                borderRight: i < 3 ? '2px solid #0A0A0A' : 'none',
+                borderRight: i < 2 ? '2px solid #0A0A0A' : 'none',
               }}
             >
               <div
@@ -355,14 +363,13 @@ export default function HomePage({ navigate, isLoggedIn, openSignup }) {
             display: none !important;
           }
           .stats-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
+            grid-template-columns: repeat(3, 1fr) !important;
           }
           .stats-grid > div:nth-child(2) {
+            border-right: 2px solid #0A0A0A !important;
+          }
+          .stats-grid > div:nth-child(3) {
             border-right: none !important;
-          }
-          .stats-grid > div:nth-child(1),
-          .stats-grid > div:nth-child(2) {
-            border-bottom: 2.5px solid #0A0A0A !important;
           }
           .why-grid { display: none; }
         }
