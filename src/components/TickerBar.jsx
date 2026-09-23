@@ -1,42 +1,24 @@
-const items = [
-  'BUILD • LEARN • COLLABORATE • SHARE • GROW',
-  'BCA TECH COMMUNITY',
-  'UPCOMING: HACK2SKILL AI HACKATHON 2026',
-  'NEW PROJECTS SUBMITTED',
-  'JOIN 1200+ MEMBERS',
-  'IDEAS INTO REALITY',
-  'GUWAHATI, ASSAM',
-  'EVENTS FROM 20+ PLATFORMS',
+const ITEMS = [
+  'BUILD', 'LEARN', 'COLLABORATE', 'SHARE', 'GROW',
+  'BCA TECH COMMUNITY', 'EVENTS FROM 20+ PLATFORMS',
+  'HACKATHONS', 'BOOTCAMPS', 'WORKSHOPS', 'GUWAHATI, ASSAM',
 ]
 
+const SEP = <span style={{ color: '#FF2D9B', margin: '0 20px' }}>✦</span>
+
 export default function TickerBar() {
-  const repeated = [...items, ...items, ...items]
+  const doubled = [...ITEMS, ...ITEMS]
   return (
-    <div
-      style={{
-        backgroundColor: '#0A0A0A',
-        overflow: 'hidden',
-        whiteSpace: 'nowrap',
-        borderBottom: '2px solid #0A0A0A',
-        padding: '7px 0',
-      }}
-    >
-      <div className="animate-marquee">
-        {repeated.map((item, i) => (
-          <span
-            key={i}
-            style={{
-              fontFamily: 'Courier New, monospace',
-              fontSize: '0.66rem',
-              fontWeight: 700,
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              color: '#BFFF00',
-              marginRight: '48px',
-            }}
-          >
-            {item}
-            <span style={{ color: '#FF3CAC', marginLeft: '24px' }}>✦</span>
+    <div style={{ background: '#0A0A0A', overflow: 'hidden', padding: '7px 0', borderBottom: '2px solid #0A0A0A' }}>
+      <div className="ticker">
+        {doubled.map((item, i) => (
+          <span key={i} style={{
+            fontFamily: 'Courier New, monospace',
+            fontSize: '0.64rem', fontWeight: 700,
+            letterSpacing: '0.16em', textTransform: 'uppercase',
+            color: '#C8FF00', marginRight: 0,
+          }}>
+            {item}{SEP}
           </span>
         ))}
       </div>
