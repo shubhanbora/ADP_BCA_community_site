@@ -7,4 +7,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    // Redirect all 404s back to index.html so react-router handles /admin
+    historyApiFallback: true,
+  },
 })

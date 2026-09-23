@@ -1,14 +1,134 @@
 import { useState, useEffect } from 'react'
 import {
   collection, getDocs, addDoc, deleteDoc,
-  doc, getCountFromServer, query, orderBy, limit,
+  doc, getCountFromServer, query, orderBy, limit, getDoc,
 } from 'firebase/firestore'
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 import { db } from '../firebase'
-import { useAuth } from '../context/AuthContext'
-import { Plus, Trash2, Users, Calendar, Code2, X, ChevronDown, ExternalLink } from 'lucide-react'
+import { adminAuth, adminDb } from '../firebase/adminAuth'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Trash2, Users, Calendar, Code2, X, ChevronDown, ExternalLink, Lock, Mail, LogOut, Eye, EyeOff } from 'lucide-react'
 
-/* ── Admin emails allowed ── */
-const ADMIN_EMAILS = ['shubhan121b@gmail.com']
+/* ── Check admin from Firestore (no hardcoded emails) ── */
+async function checkIsAdmin(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'admins', uid))
+    console.log('admins doc exists:', snap.exists(), 'data:', snap.data())
+    return snap.exists()
+  } catch (err) {
+    console.error('checkIsAdmin error:', err.code, err.message)
+    return false
+  }
+}
+
+/* ── Admin Login Screen ── */
+function AdminLogin() {
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const cred = await signInWithEmailAndPassword(adminAuth, email, password)
+      console.log('Logged in UID:', cred.user.uid)
+      console.log('Logged in Email:', cred.user.email)
+      // Verify this uid exists in Firestore 'admins' collection
+      const isAdmin = await checkIsAdmin(cred.user.uid)
+      console.log('isAdmin result:', isAdmin)
+      if (!isAdmin) {
+        await signOut(adminAuth)
+        setError('Access denied. You are not an admin.')
+      }
+    } catch (err) {
+      console.error('Login error:', err.code, err.message)
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        setError('Wrong email or password.')
+      } else {
+        setError('Login failed: ' + err.message)
+      }
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#F4F0E6', border: '2px solid #0A0A0A', boxShadow: '8px 8px 0 #C8FF00', width: '100%', maxWidth: 380, overflow: 'hidden' }}>
+        <div style={{ height: 4, background: '#C8FF00' }} />
+        <div style={{ padding: '32px' }}>
+          {/* Header */}
+          <div style={{ marginBottom: 28 }}>
+            <span style={{ fontFamily: 'Courier New, monospace', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', color: '#FF2D9B', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>ADMIN /</span>
+            <h1 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1 }}>ADMIN LOGIN</h1>
+            <p style={{ fontFamily: 'Courier New, monospace', fontSize: '0.62rem', color: '#888', marginTop: 6 }}>
+              Restricted access. Admins only.
+            </p>
+          </div>
+
+          {error && (
+            <div style={{ background: '#ffe0e0', border: '1.5px solid #cc0000', padding: '8px 12px', fontFamily: 'Courier New, monospace', fontSize: '0.65rem', color: '#cc0000', marginBottom: 16 }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <div style={{ fontFamily: 'Courier New, monospace', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 5, textTransform: 'uppercase', color: '#888' }}>EMAIL</div>
+              <div style={{ position: 'relative' }}>
+                <Mail size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
+                <input
+                  className="input" type="email" placeholder="admin@example.com"
+                  value={email} onChange={e => setEmail(e.target.value)}
+                  style={{ paddingLeft: 36 }} required
+                />
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'Courier New, monospace', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 5, textTransform: 'uppercase', color: '#888' }}>PASSWORD</div>
+              <div style={{ position: 'relative' }}>
+                <Lock size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
+                <input
+                  className="input" type={showPass ? 'text' : 'password'} placeholder="••••••••"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  style={{ paddingLeft: 36, paddingRight: 40 }} required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(v => !v)}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', display: 'flex', alignItems: 'center', transition: 'color 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#0A0A0A'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#aaa'}
+                >
+                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+            <button
+              type="submit" disabled={loading}
+              style={{
+                background: '#0A0A0A', color: 'white', border: '2px solid #0A0A0A',
+                boxShadow: '4px 4px 0 #C8FF00', padding: '12px', marginTop: 4,
+                fontFamily: 'Courier New, monospace', fontWeight: 700, fontSize: '0.78rem',
+                letterSpacing: '0.12em', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1, transition: 'transform 0.1s, box-shadow 0.1s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+              onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = 'translate(-2px,-2px)'; e.currentTarget.style.boxShadow = '6px 6px 0 #C8FF00' }}}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translate(0,0)'; e.currentTarget.style.boxShadow = '4px 4px 0 #C8FF00' }}
+            >
+              <Lock size={14} />
+              {loading ? 'SIGNING IN…' : 'LOGIN →'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const CAT_COLORS = {
   Hackathon: '#C8FF00', Bootcamp: '#FF2D9B', Competition: '#FFE040',
@@ -162,8 +282,10 @@ function FLabel({ children }) {
 /* ═══════════════════════════════
    AdminPage
 ════════════════════════════════ */
-export default function AdminPage({ navigate }) {
-  const { user } = useAuth()
+export default function AdminPage() {
+  const routerNav = useNavigate()
+  // Own auth state — completely separate from user site
+  const [adminUser, setAdminUser] = useState(undefined) // undefined = loading
   const [stats, setStats]         = useState({ users: '…', events: '…', projects: '…' })
   const [users, setUsers]         = useState([])
   const [events, setEvents]       = useState([])
@@ -171,8 +293,17 @@ export default function AdminPage({ navigate }) {
   const [activeTab, setActiveTab] = useState('DASHBOARD')
   const [deleting, setDeleting]   = useState(null)
 
-  /* Access check */
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email)
+  // Listen to admin auth state — verify against Firestore 'admins' collection
+  useEffect(() => {
+    const unsub = onAuthStateChanged(adminAuth, async (u) => {
+      if (!u) { setAdminUser(null); return }
+      const isAdmin = await checkIsAdmin(u.uid)
+      setAdminUser(isAdmin ? u : null)
+    })
+    return unsub
+  }, [])
+
+  const isAdmin = !!adminUser
 
   /* Load stats */
   useEffect(() => {
@@ -186,9 +317,7 @@ export default function AdminPage({ navigate }) {
       events:   e.data().count,
       projects: p.data().count,
     }))
-  }, [isAdmin])
-
-  /* Load users list */
+  }, [isAdmin])  /* Load users list */
   useEffect(() => {
     if (!isAdmin || activeTab !== 'USERS') return
     getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50)))
@@ -217,14 +346,21 @@ export default function AdminPage({ navigate }) {
     setDeleting(null)
   }
 
-  /* Not admin */
-  if (!user) {
+  // Still loading admin auth state
+  if (adminUser === undefined) {
     return (
-      <div style={{ padding: '80px 24px', textAlign: 'center', maxWidth: 1200, margin: '0 auto' }}>
-        <h2 style={{ fontSize: '2rem', fontWeight: 900 }}>Please log in.</h2>
+      <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: 'Courier New, monospace', color: '#C8FF00', fontSize: '0.8rem', letterSpacing: '0.2em' }}>LOADING…</span>
       </div>
     )
   }
+
+  /* Not logged in → show admin login form */
+  if (!adminUser) {
+    return <AdminLogin />
+  }
+
+  /* Logged in but not admin → 403 */
   if (!isAdmin) {
     return (
       <div style={{ padding: '80px 24px', textAlign: 'center', maxWidth: 1200, margin: '0 auto' }}>
@@ -233,7 +369,7 @@ export default function AdminPage({ navigate }) {
         <p style={{ fontFamily: 'Courier New, monospace', fontSize: '0.72rem', color: '#888', marginTop: 12 }}>
           This page is restricted to admins only.
         </p>
-        <button className="btn btn-black" style={{ marginTop: 24 }} onClick={() => navigate('home')}>← GO HOME</button>
+        <button className="btn btn-black" style={{ marginTop: 24 }} onClick={() => routerNav('/')}>← GO HOME</button>
       </div>
     )
   }
@@ -248,16 +384,25 @@ export default function AdminPage({ navigate }) {
           <span className="section-number">ADMIN /</span>
           <h1 style={{ fontSize: 'clamp(2rem,5vw,3.5rem)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 0.92, marginTop: 4 }}>ADMIN PANEL</h1>
           <p style={{ fontFamily: 'Courier New, monospace', fontSize: '0.65rem', color: '#888', marginTop: 8 }}>
-            Logged in as <strong>{user.email}</strong>
+            Logged in as <strong>{adminUser.email}</strong>
           </p>
         </div>
-        <div style={{ background: '#FFE040', border: '2px solid #0A0A0A', boxShadow: '3px 3px 0 #0A0A0A', padding: '8px 14px', fontFamily: 'Courier New, monospace', fontSize: '0.65rem', fontWeight: 700, transform: 'rotate(-1.5deg)' }}>
-          ADMIN<br />ACCESS
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ background: '#FFE040', border: '2px solid #0A0A0A', boxShadow: '3px 3px 0 #0A0A0A', padding: '8px 14px', fontFamily: 'Courier New, monospace', fontSize: '0.65rem', fontWeight: 700, transform: 'rotate(-1.5deg)' }}>
+            ADMIN<br />ACCESS
+          </div>
+          <button
+            onClick={async () => { await signOut(adminAuth) }}
+            style={{ background: 'none', border: '2px solid #333', padding: '6px 12px', fontFamily: 'Courier New, monospace', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#888', textTransform: 'uppercase', transition: 'color 0.15s, border-color 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#FF2D9B'; e.currentTarget.style.borderColor = '#FF2D9B' }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#333' }}
+          >
+            <LogOut size={13} /> LOGOUT
+          </button>
         </div>
       </div>
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 60px' }}>
-        {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '2px solid #0A0A0A', marginBottom: 28 }}>
           {TABS.map(t => (
             <button key={t} onClick={() => setActiveTab(t)}

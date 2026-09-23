@@ -1,22 +1,31 @@
 import { useEffect, useState } from 'react'
 import { collection, getCountFromServer } from 'firebase/firestore'
-import { db } from '../context/../firebase'
+import { db } from '../firebase'
 import clgImg from '../assets/clg.jpg'
 
-/* ─── HomePage ─── */
 export default function HomePage({ navigate, isLoggedIn, openSignup }) {
-  const [memberCount, setMemberCount] = useState('...')
+  const [counts, setCounts] = useState({ members: '...', events: '...', projects: '...' })
 
   useEffect(() => {
-    getCountFromServer(collection(db, 'users'))
-      .then(snap => setMemberCount(snap.data().count.toLocaleString()))
-      .catch(() => setMemberCount('1.2K+'))
+    Promise.all([
+      getCountFromServer(collection(db, 'users')),
+      getCountFromServer(collection(db, 'events')),
+      getCountFromServer(collection(db, 'projects')),
+    ]).then(([u, e, p]) => {
+      setCounts({
+        members:  u.data().count.toLocaleString(),
+        events:   e.data().count.toLocaleString(),
+        projects: p.data().count.toLocaleString(),
+      })
+    }).catch(() => {
+      setCounts({ members: '—', events: '—', projects: '—' })
+    })
   }, [])
 
   const stats = [
-    { value: memberCount, label: 'MEMBERS' },
-    { value: '50+',       label: 'EVENTS'   },
-    { value: '200+',      label: 'PROJECTS' },
+    { value: counts.members,  label: 'MEMBERS'  },
+    { value: counts.events,   label: 'EVENTS'   },
+    { value: counts.projects, label: 'PROJECTS' },
   ]
 
   return (
